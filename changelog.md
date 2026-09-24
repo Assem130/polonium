@@ -2,6 +2,13 @@
 
 ## 1.2
 
+### Unreleased
+
+- Add a single-window focus view with Meta+M that follows the active window and leaves room for auto-hide panels
+- Restore frame geometry, borders, and stacking when focus ends or a window leaves fullscreen, maximization, or minimization; restore the original tile after a same-session script reload when its native tile still exists
+- Preserve existing native tile layouts during startup and handle unavailable or delayed saved settings without blocking tiling
+- Include windows on all activities when adopting and rebuilding layouts
+
 ### 1.2.2
 
 - Shrink tiles when resizing with keyboard shortcuts at maximum size

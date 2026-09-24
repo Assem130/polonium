@@ -16,6 +16,9 @@ export class ShortcutsHandler {
         this.shortcuts
             .toggleActiveTiling()
             .activated.connect(this.toggleActiveTiling.bind(this));
+        this.shortcuts
+            .toggleSingleWindowView()
+            .activated.connect(this.toggleSingleWindowView.bind(this));
 
         this.shortcuts
             .setEngineBTree()
@@ -117,6 +120,7 @@ export class ShortcutsHandler {
     toggleActiveTiling() {
         const window = this.workspace.activeWindow;
         if (window == null) return;
+        ctrl().releaseFocusForWindow(window);
         const windowHandler = ctrl().getWindowHandler(window);
         if (windowHandler == undefined) return;
         if (ctrl().isWindowTiled(window)) {
@@ -132,6 +136,22 @@ export class ShortcutsHandler {
                 window: window,
             });
         }
+    }
+
+    toggleSingleWindowView() {
+        const window = this.workspace.activeWindow;
+        ctrl().queueEvent({
+            t: "toggleSingleWindowView",
+            window,
+            display:
+                window == null
+                    ? undefined
+                    : new Display(
+                          this.workspace.currentDesktop,
+                          this.workspace.currentActivity,
+                          window.output,
+                      ),
+        });
     }
 
     setEngineType(engineType: TilingEngineType) {

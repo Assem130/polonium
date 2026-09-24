@@ -16,6 +16,16 @@ Item {
         text: "Polonium: Toggle Tiling on Active Window";
         sequence: "Meta+Shift+Space";
     }
+    function toggleSingleWindowView() {
+        return toggleSingleWindowViewObj;
+    }
+    ShortcutHandler {
+        id: toggleSingleWindowViewObj;
+
+        name: "PoloniumToggleSingleWindowView";
+        text: "Polonium: Toggle Single Window View";
+        sequence: "Meta+M";
+    }
     // no default shortcuts for specific engines
     function setEngineBTree() {
         return setEngineBTreeObj;

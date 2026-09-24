@@ -71,6 +71,10 @@ No settings are available for this layout. Configuration is done via the KWin ti
 
 ## Windows
 
+### Focus View
+
+Press `Meta+M` to give the active normal window nearly the full work area. The small edge inset leaves room to reveal auto-hide panels. Focus view follows the active window; press `Meta+M` again to return to its previous tiled or floating size. Native fullscreen and maximization remain separate window actions.
+
 * Borders - How window borders should be distributed.
 * Place Tiled Windows Below - Whether tiled windows should be forced below floating/fullscreen ones.
 * Window Dragging Policy - How dragged windows should be treated.

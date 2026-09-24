@@ -24,6 +24,7 @@ The descendant of [autotile](https://github.com/zeroxoneafour/kwin-autotile).
 - Custom moddable tiling engine backend
 - Edit tile sizes with the integrated KWin GUI
 - Move and tile windows with your mouse and keyboard
+- Focus one window with Meta+M while keeping auto-hide panels reachable
 - Set layouts independently of desktop and screen
 - DBus integration to save layouts and configurations after logging out
 

@@ -1,3 +1,8 @@
+import {
+    LayoutDirection,
+    Tile as KwinTile,
+    Window as KwinWindow,
+} from "kwin-api";
 import { Direction, Tile, TilingEngineInterface, Window } from "../engine";
 
 export class KwinEngine implements TilingEngineInterface {
@@ -16,6 +21,46 @@ export class KwinEngine implements TilingEngineInterface {
         this.rootTile = Tile.fromJSON(tiles);
     }
 
+    restoreExistingLayout(
+        rootTile: KwinTile,
+        windowMap: Map<KwinWindow, Window>,
+        tiledWindows: Set<Window>,
+    ): Map<KwinTile, Tile> {
+        this.windowTiles.clear();
+        const tileMap = new Map<KwinTile, Tile>();
+        const importTile = (nativeTile: KwinTile, parent?: Tile): Tile => {
+            const tile = new Tile(parent);
+            tileMap.set(nativeTile, tile);
+            if (parent !== undefined) {
+                parent.children.push(tile);
+            }
+            tile.layoutDirection = nativeTile.layoutDirection;
+            for (const nativeWindow of nativeTile.windows) {
+                const window = windowMap.get(nativeWindow);
+                if (window === undefined || !tiledWindows.has(window)) {
+                    continue;
+                }
+                tile.windows.push(window);
+                this.windowTiles.set(window, tile);
+            }
+            const dimension =
+                nativeTile.layoutDirection === LayoutDirection.Horizontal
+                    ? "width"
+                    : "height";
+            const parentSize = nativeTile.absoluteGeometry[dimension];
+            for (const nativeChild of nativeTile.tiles) {
+                const child = importTile(nativeChild, tile);
+                child.size =
+                    parentSize > 0
+                        ? nativeChild.absoluteGeometry[dimension] / parentSize
+                        : 1;
+            }
+            return tile;
+        };
+        this.rootTile = importTile(rootTile);
+        return tileMap;
+    }
+
     buildLayout(): Tile {
         return this.rootTile;
     }
@@ -28,12 +73,18 @@ export class KwinEngine implements TilingEngineInterface {
         if (tile === undefined) {
             return;
         }
-        tile.windows.splice(tile.windows.indexOf(window), 1);
+        const index = tile.windows.indexOf(window);
+        if (index >= 0) {
+            tile.windows.splice(index, 1);
+        }
     }
     placeWindow(window: Window, tile: Tile, _direction?: Direction): void {
         if (this.windowTiles.has(window)) {
             const oldTile = this.windowTiles.get(window)!;
-            oldTile.windows.splice(oldTile.windows.indexOf(window), 1);
+            const index = oldTile.windows.indexOf(window);
+            if (index >= 0) {
+                oldTile.windows.splice(index, 1);
+            }
         }
         if (!tile.windows.includes(window)) {
             tile.windows.push(window);

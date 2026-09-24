@@ -2,6 +2,7 @@
 pkg/
 *.kate-swp
 src/**/*.js
+!src/qml/focus-state.js
 .scannerwork
 
 dbus-saver/target/

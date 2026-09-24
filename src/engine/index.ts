@@ -1,5 +1,6 @@
 // engine/index.ts - Wrapper around the engines to interact with the driver
 import { console } from "../controller";
+import { Tile as KwinTile, Window as KwinWindow } from "kwin-api";
 import {
     TilingEngineInterface,
     Window,
@@ -91,5 +92,31 @@ export class TilingEngine {
     }
     updateTiles(rootTile: Tile): void {
         return this.engine.updateTiles(rootTile);
+    }
+
+    restoreExistingBTree(
+        rootTile: KwinTile,
+        windowMap: Map<KwinWindow, Window>,
+        tiledWindows: Set<Window>,
+    ): boolean {
+        return (
+            this.engine instanceof BTreeEngine &&
+            this.engine.restoreExistingLayout(rootTile, windowMap, tiledWindows)
+        );
+    }
+
+    restoreExistingKWin(
+        rootTile: KwinTile,
+        windowMap: Map<KwinWindow, Window>,
+        tiledWindows: Set<Window>,
+    ): Map<KwinTile, Tile> {
+        if (this.engine instanceof KwinEngine) {
+            return this.engine.restoreExistingLayout(
+                rootTile,
+                windowMap,
+                tiledWindows,
+            );
+        }
+        return new Map();
     }
 }

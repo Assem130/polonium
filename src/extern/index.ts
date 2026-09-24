@@ -12,7 +12,20 @@ export interface QmlApi {
 }
 
 export interface QmlObjects {
-    root: QObject;
+    root: QObject & {
+        saveFocusSnapshot(id: string, snapshot: object): void;
+        getFocusSnapshot(id: string): unknown;
+        removeFocusSnapshot(id: string): void;
+        saveTiledIntent(id: string, tiled: boolean): void;
+        getTiledIntent(id: string): unknown;
+        removeTiledIntent(id: string): void;
+        saveFullscreenStacking(
+            id: string,
+            stacking: { keepAbove: boolean; keepBelow: boolean },
+        ): void;
+        getFullscreenStacking(id: string): unknown;
+        removeFullscreenStacking(id: string): void;
+    };
     eventTimer: QTimer;
     shortcuts: Shortcuts;
     settings: Settings;
@@ -21,6 +34,7 @@ export interface QmlObjects {
 
 export interface Shortcuts {
     toggleActiveTiling(): ShortcutHandler;
+    toggleSingleWindowView(): ShortcutHandler;
 
     setEngineBTree(): ShortcutHandler;
     setEngineHalf(): ShortcutHandler;

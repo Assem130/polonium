@@ -3,3 +3,4 @@ kwin-api
 dbus-saver
 docs/.svelte-kit
 docs/build
+src/qml/focus-state.js

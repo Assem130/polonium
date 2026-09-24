@@ -10,6 +10,7 @@ import {
 } from "../engine";
 import { Queue, Stack, StackLike } from "../../util";
 import { console } from "../../controller";
+import { Tile as KwinTile, Window as KwinWindow } from "kwin-api";
 
 class BTreeSettings extends BaseEngineSettings {
     swapInsertSide: boolean = false;
@@ -97,6 +98,74 @@ export class BTreeEngine implements TilingEngineInterface {
     root: Node = new Node();
     tileMap: Map<Tile, Node> = new Map();
     windowSet: Set<Window> = new Set();
+
+    restoreExistingLayout(
+        rootTile: KwinTile,
+        windowMap: Map<KwinWindow, Window>,
+        tiledWindows: Set<Window>,
+    ): boolean {
+        if (tiledWindows.size === 0) {
+            return true;
+        }
+        const found = new Set<Window>();
+        const makeNode = (
+            kwinTile: KwinTile,
+            parent: Node | null,
+        ): Node | null => {
+            const node = new Node(parent ?? undefined);
+            if (parent === null) {
+                node.layoutDirectionRoot = kwinTile.layoutDirection;
+            }
+            if (kwinTile.tiles.length === 0) {
+                const windows = kwinTile.windows
+                    .map((window) => windowMap.get(window))
+                    .filter(
+                        (window): window is Window =>
+                            window !== undefined && tiledWindows.has(window),
+                    );
+                if (windows.length !== 1 || found.has(windows[0])) {
+                    return null;
+                }
+                node.window = windows[0];
+                found.add(windows[0]);
+                return node;
+            }
+            if (
+                kwinTile.tiles.length !== 2 ||
+                kwinTile.layoutDirection !== node.layoutDirection
+            ) {
+                return null;
+            }
+            const dimension =
+                kwinTile.layoutDirection === LayoutDirection.Horizontal
+                    ? "width"
+                    : "height";
+            const parentSize = kwinTile.absoluteGeometry[dimension];
+            if (parentSize <= 0) {
+                return null;
+            }
+            const left = makeNode(kwinTile.tiles[0], node);
+            const right = makeNode(kwinTile.tiles[1], node);
+            if (left === null || right === null) {
+                return null;
+            }
+            left.size =
+                (kwinTile.tiles[0].absoluteGeometry[dimension] / parentSize) *
+                2;
+            right.size =
+                (kwinTile.tiles[1].absoluteGeometry[dimension] / parentSize) *
+                2;
+            node.children = [left, right];
+            return node;
+        };
+        const root = makeNode(rootTile, null);
+        if (root === null || found.size !== tiledWindows.size) {
+            return false;
+        }
+        this.root = root;
+        this.windowSet = found;
+        return true;
+    }
 
     buildLayout(): Tile {
         const queue = new Queue<[Node, Tile]>();

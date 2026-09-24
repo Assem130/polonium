@@ -21,48 +21,90 @@ function settingsBundle(
 
 export class DBusHandler {
     private dbusQml: DBusQml;
+    private queuedGets: Display[] = [];
+    private activeGet: Display | null = null;
 
     constructor(dbusQml: DBusQml) {
         this.dbusQml = dbusQml;
-        dbusQml
-            .getSettings()
-            .finished.connect(this.getSettingsCallback.bind(this));
+        const getSettings = dbusQml.getSettings();
+        getSettings.finished.connect(this.getSettingsCallback.bind(this));
+        getSettings.failed.connect(this.getSettingsFailed.bind(this));
     }
 
     getSettings(display: Display): void {
         console().debug("getSettings called");
-        this.dbusQml.getSettings().arguments = [display.toString()];
-        this.dbusQml.getSettings().call();
+        // DBusCall.failed has no arguments, so only one request may be active.
+        this.queuedGets.push(display);
+        this.startNextGet();
     }
 
-    private getSettingsCallback([
-        desktopIdStr,
-        settingsBundleStr,
-    ]: any[]): void {
-        console().debug(
-            "getSettings dbus callback activated -",
-            desktopIdStr,
-            settingsBundleStr,
-        );
+    private startNextGet(): void {
+        if (this.activeGet !== null) {
+            return;
+        }
+        const display = this.queuedGets.shift();
+        if (display === undefined) {
+            return;
+        }
+        this.activeGet = display;
         try {
-            const display = ctrl().parseDisplay(desktopIdStr as string);
-            if (display === undefined) return;
-            const settingsBundle = JSON.parse(
-                settingsBundleStr as string,
-            ) as SettingsBundle;
+            const request = this.dbusQml.getSettings();
+            request.arguments = [display.toString()];
+            request.call();
+        } catch (e) {
+            console().error(e);
+            this.resolveActiveGet();
+        }
+    }
+
+    private resolveActiveGet(settingsBundle?: SettingsBundle): void {
+        const display = this.activeGet;
+        this.activeGet = null;
+        if (display !== null) {
             ctrl().queueEvent(
                 {
-                    t: "changeEngine",
-                    display: display,
-                    engineType: settingsBundle.engineType,
-                    engineSettings: settingsBundle.engineSettings,
-                    noDBusUpdate: true,
+                    t: "settingsResolved",
+                    display,
+                    engineType: settingsBundle?.engineType,
+                    engineSettings: settingsBundle?.engineSettings,
                 },
                 true,
             );
+        }
+        this.startNextGet();
+    }
+
+    private getSettingsCallback(returnValue: any[]): void {
+        const display = this.activeGet;
+        if (display === null) {
+            return;
+        }
+        try {
+            const [desktopIdStr, settingsBundleStr] = returnValue;
+            console().debug(
+                "getSettings dbus callback activated -",
+                desktopIdStr,
+                settingsBundleStr,
+            );
+            if (desktopIdStr !== display.toString()) {
+                throw new Error(
+                    "saver returned settings for a different display",
+                );
+            }
+            const settingsBundle = JSON.parse(
+                settingsBundleStr as string,
+            ) as SettingsBundle;
+            this.resolveActiveGet(settingsBundle);
         } catch (e) {
             console().error(e);
+            // An unreadable saver response leaves the configured default engine in place.
+            this.resolveActiveGet();
         }
+    }
+
+    private getSettingsFailed(): void {
+        console().warn("getSettings dbus call failed");
+        this.resolveActiveGet();
     }
 
     setSettings(

@@ -3,6 +3,7 @@ import { TilingEngineType } from "../engine";
 import { Queue, Direction } from "../util";
 import { QPoint } from "kwin-api/qt";
 import { Workspace } from "kwin-api/qml";
+import { FocusSnapshot } from "./focus-snapshot";
 
 export type DisplaySymbol = Symbol;
 
@@ -58,8 +59,12 @@ export class Display {
         const desktops = window.onAllDesktops
             ? (this.workspace?.desktops ?? [])
             : window.desktops;
+        const activities =
+            window.activities.length === 0
+                ? (this.workspace?.activities ?? [])
+                : window.activities;
         for (const desktop of desktops) {
-            for (const activity of window.activities) {
+            for (const activity of activities) {
                 yield new Display(desktop, activity, window.output);
             }
         }
@@ -95,6 +100,11 @@ interface TileWindowEvent {
     t: "tileWindow";
     window: Window;
 }
+interface RestoreTiledWindowEvent {
+    t: "restoreTiledWindow";
+    window: Window;
+    display: Display;
+}
 interface UntileWindowEvent {
     t: "untileWindow";
     window: Window;
@@ -112,10 +122,21 @@ interface PlaceWindowPointEvent {
 }
 interface WindowActivatedEvent {
     t: "windowActivated";
-    window: Window;
+    window: Window | null;
+}
+interface ToggleSingleWindowViewEvent {
+    t: "toggleSingleWindowView";
+    window: Window | null;
+    display?: Display;
 }
 interface UpdateDriversEvent {
     t: "updateDrivers";
+}
+interface SettingsResolvedEvent {
+    t: "settingsResolved";
+    display: Display;
+    engineType?: TilingEngineType;
+    engineSettings?: object;
 }
 interface RebuildDisplaysEvent {
     t: "rebuildDisplays";
@@ -144,11 +165,15 @@ export type Event =
     | DeleteWindowEvent
     | UpdateWindowEvent
     | TileWindowEvent
+    | RestoreTiledWindowEvent
     | UntileWindowEvent
     | PlaceWindowEvent
     | PlaceWindowPointEvent
+    | ReplayPlacementEvent
     | WindowActivatedEvent
+    | ToggleSingleWindowViewEvent
     | UpdateDriversEvent
+    | SettingsResolvedEvent
     | RebuildDisplaysEvent
     | UpdateTilesEvent
     | ChangeEngineEvent
@@ -161,6 +186,9 @@ interface SetWindowPropertiesEvent {
     fullscreen?: boolean;
     noBorder?: boolean;
     keepAbove?: boolean;
+    keepBelow?: boolean;
+    fullscreenStacking?: { keepAbove: boolean; keepBelow: boolean };
+    geometry?: { x: number; y: number; width: number; height: number };
 }
 // make update tile sizes run post to avoid rebuilds that can cause jutter
 interface ToggleSettingsMenuEvent {
@@ -168,7 +196,26 @@ interface ToggleSettingsMenuEvent {
     display: Display;
 }
 
-export type PostEvent = SetWindowPropertiesEvent | ToggleSettingsMenuEvent;
+interface RestoreFocusSnapshotEvent {
+    t: "restoreFocusSnapshot";
+    window: Window;
+    snapshot: FocusSnapshot;
+}
+
+interface ReplayPlacementEvent {
+    t: "replayPlacement";
+    window: Window;
+    display: Display;
+    tilePath?: number[] | null;
+    tileGeometry?: FocusSnapshot["geometry"];
+    point?: QPoint;
+    direction?: Direction;
+}
+
+export type PostEvent =
+    | SetWindowPropertiesEvent
+    | ToggleSettingsMenuEvent
+    | RestoreFocusSnapshotEvent;
 
 function eventsAreSame(ev1: GenericEvent, ev2: GenericEvent): boolean {
     if (ev1.t !== ev2.t) return false;
@@ -252,7 +299,11 @@ export function simplifyEvents(oldEvents: Queue<Event>): Queue<Event> {
         }
         // code that continues must go below code that removes other events,
         // as if it continues too early then events are not cancelled evenly
-        if (newEvents.some((e) => eventsAreSame(ev, e))) {
+        // Each shortcut press must count, even if two arrive in one rebuild batch.
+        if (
+            ev.t !== "toggleSingleWindowView" &&
+            newEvents.some((e) => eventsAreSame(ev, e))
+        ) {
             continue;
         }
         // filter out changeEngine events with two undefineds
