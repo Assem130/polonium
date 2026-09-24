@@ -68,7 +68,7 @@ export class WorkspaceHandler {
         for (const disconnect of this.disconnectSignals.splice(0)) {
             try {
                 disconnect();
-            } catch (_error) {
+            } catch (error) {
                 // A removed native object may already have dropped its signals.
             }
         }
